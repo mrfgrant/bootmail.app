@@ -8,18 +8,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [debug, setDebug] = useState('')
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setDebug('Attempting sign in...')
 
     try {
       const supabase = createClient()
+      setDebug('Supabase client created. Calling signInWithPassword...')
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       })
+
+      setDebug('Response received. error=' + JSON.stringify(authError) + ' session=' + (data?.session ? 'YES' : 'NO') + ' user=' + (data?.user?.email ?? 'none'))
 
       if (authError) {
         setError(authError.message)
@@ -28,14 +34,18 @@ export default function LoginPage() {
       }
 
       if (data?.session) {
-        // Force hard navigation — bypasses any router caching issues
-        window.location.href = '/dashboard'
+        setDebug('Session found! Redirecting to /dashboard...')
+        setTimeout(() => {
+          window.location.replace('/dashboard')
+        }, 500)
       } else {
-        setError('Sign in failed — no session returned. Try again.')
+        setError('Sign in returned no session. Check email confirmation settings in Supabase.')
         setLoading(false)
       }
-    } catch (err) {
-      setError('Something went wrong. Please try again.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError('Exception: ' + msg)
+      setDebug('Caught error: ' + msg)
       setLoading(false)
     }
   }
@@ -83,18 +93,20 @@ export default function LoginPage() {
             </div>
           )}
 
-          {loading && (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560', textAlign: 'center' }}
-              className="uppercase">
-              Signing in...
+          {/* DEBUG OUTPUT — visible on screen */}
+          {debug && (
+            <div style={{ background: 'rgba(212,160,23,0.1)', border: '1px solid rgba(212,160,23,0.3)', padding: '12px 16px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#d4a017', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                DEBUG: {debug}
+              </p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            style={{ background: loading ? '#2a3020' : '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', width: '100%', padding: '16px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
-            className="text-white uppercase">
+            style={{ background: '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', width: '100%', padding: '16px', border: 'none', cursor: 'pointer' }}
+            className="text-white uppercase hover:opacity-90 disabled:opacity-50">
             {loading ? 'Signing In...' : 'Sign In →'}
           </button>
         </form>
@@ -119,14 +131,6 @@ export default function LoginPage() {
           className="uppercase hover:text-gray-500 transition-colors">
           ← Back to bootmail.app
         </Link>
-      </div>
-
-      {/* Debug helper — remove after testing */}
-      <div className="text-center mt-4">
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#2a2a2a' }}>
-          No account yet?{' '}
-          <Link href="/auth/signup" style={{ color: '#4a5240' }}>Sign up first</Link>
-        </p>
       </div>
     </div>
   )

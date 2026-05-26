@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --olive:       #4a5240;
+  --olive-light: #6b7560;
+  --tan:         #c8b89a;
+  --tan-light:   #e8ddd0;
+  --cream:       #f5f0e8;
+  --black:       #1a1a16;
+  --gold:        #b8860b;
+  --gold-light:  #d4a017;
+  --red:         #c0392b;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--cream);
+    color: var(--black);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+}
+
+@layer components {
+  /* ─── BUTTONS ─── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-mono text-sm tracking-widest uppercase text-white transition-all duration-200;
+    background: var(--olive);
+  }
+  .btn-primary:hover { background: var(--olive-light); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-mono text-sm tracking-widest uppercase text-black transition-all duration-200;
+    background: var(--gold-light);
+  }
+  .btn-gold:hover { background: var(--gold); }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-mono text-sm tracking-widest uppercase transition-all duration-200 border;
+    border-color: var(--olive);
+    color: var(--olive);
+  }
+  .btn-outline:hover { background: var(--olive); color: white; }
+
+  /* ─── INPUTS ─── */
+  .input {
+    @apply w-full px-4 py-3 font-body text-sm bg-white border border-tan focus:outline-none focus:border-olive transition-colors;
+  }
+
+  .label {
+    @apply block font-mono text-xs tracking-widest uppercase text-olive-light mb-2;
+  }
+
+  /* ─── CARDS ─── */
+  .card {
+    @apply bg-white p-6 border-t-4 border-tan hover:border-olive transition-all duration-200;
+  }
+
+  /* ─── SECTION TAGS ─── */
+  .section-tag {
+    @apply font-mono text-xs tracking-widest uppercase text-olive-light flex items-center gap-3 mb-3;
+  }
+  .section-tag::after {
+    content: '';
+    @apply flex-1 h-px bg-tan max-w-12;
+  }
+
+  /* ─── BRANCH BADGE ─── */
+  .branch-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 font-mono text-xs tracking-wider uppercase text-white;
+  }
+}
+
+@layer utilities {
+  .font-display { font-family: var(--font-display); }
+  .font-body    { font-family: var(--font-body); }
+  .font-mono    { font-family: var(--font-mono); }
+
+  /* Grid lines background */
+  .bg-grid {
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(74,82,64,0.06) 40px, rgba(74,82,64,0.06) 41px),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(74,82,64,0.06) 40px, rgba(74,82,64,0.06) 41px);
+  }
+
+  /* Noise texture overlay */
+  .noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .animate-delay-100 { animation-delay: 100ms; }
+  .animate-delay-200 { animation-delay: 200ms; }
+  .animate-delay-300 { animation-delay: 300ms; }
+  .animate-delay-400 { animation-delay: 400ms; }
+  .animate-delay-500 { animation-delay: 500ms; }
+}

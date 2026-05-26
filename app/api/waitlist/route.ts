@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
 
-// ⚠️ Resend initialized INSIDE the handler so env vars are available at runtime
 export async function POST(request: NextRequest) {
   try {
     const { email, name, branch } = await request.json()
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
       throw dbError
     }
 
-    // Send welcome email — initialize Resend here, not at module level
+    // Send welcome email
     const resend = new Resend(process.env.RESEND_API_KEY)
     const firstName = name?.split(' ')[0] || 'there'
     const branchEmoji: Record<string, string> = {
@@ -33,8 +32,8 @@ export async function POST(request: NextRequest) {
     }
     const emoji = branch ? (branchEmoji[branch] || '🎖️') : '🎖️'
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+    const { data: emailData, error: emailError } = await resend.emails.send({
+      from: 'BootMail <hello@mailer.bootmail.app>',
       to: email,
       subject: "You're on the BootMail waitlist 🎖️",
       html: `<!DOCTYPE html>
@@ -70,6 +69,13 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`,
     })
+
+    // Log result for debugging
+    if (emailError) {
+      console.error('Resend error:', JSON.stringify(emailError))
+    } else {
+      console.log('Email sent:', emailData?.id)
+    }
 
     return NextResponse.json({ success: true })
 

@@ -1,15 +1,39 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+'use client'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 const ADMIN_EMAILS = ['jamie@mrfgrant.com']
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !ADMIN_EMAILS.includes(user.email ?? '')) {
-    redirect('/')
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const [authorized, setAuthorized] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function check() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user || !ADMIN_EMAILS.includes(session.user.email ?? '')) {
+        window.location.href = '/'
+        return
+      }
+      setAuthorized(true)
+      setLoading(false)
+    }
+    check()
+  }, [])
+
+  if (loading) {
+    return (
+      <div style={{ background: '#1a1a16', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '4px', color: '#4a5240' }} className="uppercase">
+          Verifying access...
+        </div>
+      </div>
+    )
   }
+
+  if (!authorized) return null
 
   return (
     <div style={{ background: '#1a1a16', minHeight: '100vh' }}>

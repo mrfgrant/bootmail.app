@@ -157,8 +157,12 @@ export default function LandingPage() {
                 {l.label}
               </a>
             ))}
+            <a href="/auth/login"
+              className="ml-4 font-mono text-xs tracking-widest uppercase px-5 py-2 text-gray-300 border border-gray-700 hover:border-gray-500 transition-colors">
+              Sign In
+            </a>
             <a href="#waitlist"
-              className="ml-4 font-mono text-xs tracking-widest uppercase px-5 py-2 text-black transition-colors"
+              className="ml-2 font-mono text-xs tracking-widest uppercase px-5 py-2 text-black transition-colors"
               style={{ background: '#d4a017' }}>
               Join Waitlist
             </a>
@@ -179,6 +183,16 @@ export default function LandingPage() {
                 {l.label}
               </a>
             ))}
+            <a href="/auth/login" onClick={() => setMenuOpen(false)}
+              className="font-mono text-xs tracking-widest uppercase py-2 border-b border-gray-800"
+              style={{ color: '#d4a017' }}>
+              Sign In →
+            </a>
+            <a href="/auth/signup" onClick={() => setMenuOpen(false)}
+              className="font-mono text-xs tracking-widest uppercase py-3 text-black text-center mt-1"
+              style={{ background: '#d4a017' }}>
+              Create Account
+            </a>
           </div>
         )}
       </nav>
@@ -507,6 +521,28 @@ export default function LandingPage() {
               <p className="font-body text-gray-400 text-sm">
                 We'll email you when BootMail launches. Your 5 free letters are waiting.
               </p>
+            </div>
+          ) : success ? (
+            <div style={{ background: 'rgba(74,82,64,0.2)', border: '1px solid rgba(74,82,64,0.4)' }} className="p-8 text-center">
+              <div className="text-4xl mb-4">🎖️</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '32px', color: '#ffffff', letterSpacing: '3px' }} className="mb-2">
+                You&apos;re In.
+              </div>
+              <p style={{ fontFamily: 'var(--font-body)', color: '#c8b89a', fontSize: '14px' }} className="mb-6">
+                Check your email for your welcome letter. 5 free credits are waiting.
+              </p>
+              <div className="flex flex-col gap-3">
+                <a href="/auth/signup"
+                  style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px' }}
+                  className="block px-8 py-4 text-black uppercase hover:opacity-90 transition-opacity">
+                  Create Your Account →
+                </a>
+                <a href="/auth/login"
+                  style={{ border: '1px solid rgba(255,255,255,0.15)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', color: '#6b7560' }}
+                  className="block px-8 py-3 uppercase hover:text-white transition-colors">
+                  Already have an account? Sign In
+                </a>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleWaitlist} className="space-y-3 text-left">

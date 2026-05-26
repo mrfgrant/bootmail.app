@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -56,55 +56,35 @@ export default function NewRecruitPage() {
     setSearchResults([])
     setJoinError('')
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { window.location.href = '/auth/login'; return }
 
-    // Get session fresh inside the handler — avoids userId race condition
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { window.location.href = '/auth/login'; return }
-    const uid = session.user.id
+      // Use API route — bypasses RLS issues with client queries
+      const params = new URLSearchParams({ name: searchName.trim() })
+      if (searchBranch) params.set('branch', searchBranch)
 
-    let query = supabase
-      .from('recruits')
-      .select('id, full_name, branch, training_base, city, state, status, ship_date, owner_id')
-      .ilike('full_name', '%' + searchName.trim() + '%')
+      const [searchRes, myRecruitsRes, mySquadRes] = await Promise.all([
+        fetch('/api/recruits/search?' + params.toString()),
+        supabase.from('recruits').select('id').eq('owner_id', session.user.id),
+        supabase.from('squad_members').select('recruit_id').eq('profile_id', session.user.id),
+      ])
 
-    if (searchBranch) query = query.eq('branch', searchBranch)
-
-    const [
-      { data: results, error: searchErr },
-      { data: myRecruits },
-      { data: mySquad },
-    ] = await Promise.all([
-      query.limit(10),
-      supabase.from('recruits').select('id').eq('owner_id', uid),
-      supabase.from('squad_members').select('recruit_id').eq('profile_id', uid),
-    ])
-
-    if (searchErr) {
-      console.error('Search error:', searchErr)
+      const { results } = await searchRes.json()
+      setSearchResults(results ?? [])
+      setMyRecruitIds(myRecruitsRes.data?.map((r: any) => r.id) ?? [])
+      setMySquadIds(mySquadRes.data?.map((s: any) => s.recruit_id) ?? [])
+    } catch (err) {
+      console.error('Search failed:', err)
     }
 
-    setMyRecruitIds(myRecruits?.map((r: any) => r.id) ?? [])
-    setMySquadIds(mySquad?.map((s: any) => s.recruit_id) ?? [])
-    setSearchResults(results ?? [])
     setSearching(false)
     setStep('results')
   }
 
-  function getStatus(recruitId: string, ownerId: string) {
-    if (ownerId === myRecruitIds[0] || myRecruitIds.includes(recruitId)) return 'owner'
-    if (mySquadIds.includes(recruitId) || joined === recruitId) return 'squad'
-    return 'none'
-  }
-
-  // Re-check owner using fresh data
-  function isOwner(recruit: any) {
-    return myRecruitIds.includes(recruit.id)
-  }
-
-  function isSquad(recruit: any) {
-    return mySquadIds.includes(recruit.id) || joined === recruit.id
-  }
+  function isOwner(recruit: any) { return myRecruitIds.includes(recruit.id) }
+  function isSquad(recruit: any) { return mySquadIds.includes(recruit.id) || joined === recruit.id }
 
   async function handleJoinSquad(recruitId: string) {
     setJoining(recruitId)
@@ -119,12 +99,11 @@ export default function NewRecruitPage() {
 
     if (joinErr) {
       setJoinError(joinErr.code === '23505' ? 'Already in this squad.' : joinErr.message)
-      setJoining('')
     } else {
       setJoined(recruitId)
       setMySquadIds(prev => [...prev, recruitId])
-      setJoining('')
     }
+    setJoining('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -168,9 +147,7 @@ export default function NewRecruitPage() {
             style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560', background: 'none', border: 'none', cursor: 'pointer' }}
             className="uppercase mb-4 block">← Back</button>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }}>Add Recruit</h1>
-          <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
-            Fill in their details. Address can be added later.
-          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">Fill in their details. Address can be added later.</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div style={{ background: '#ffffff', padding: '28px' }}>
@@ -241,9 +218,7 @@ export default function NewRecruitPage() {
             style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560', background: 'none', border: 'none', cursor: 'pointer' }}
             className="uppercase mb-4 block">← Search Again</button>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }}>
-            {searchResults.length > 0
-              ? searchResults.length + ' Result' + (searchResults.length > 1 ? 's' : '')
-              : 'No Results'}
+            {searchResults.length > 0 ? searchResults.length + ' Result' + (searchResults.length > 1 ? 's' : '') : 'No Results'}
           </h1>
           <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
             Searching for &ldquo;{searchName}&rdquo;{searchBranch ? ' · ' + searchBranch : ''}
@@ -254,7 +229,7 @@ export default function NewRecruitPage() {
           <div className="space-y-0.5 mb-6">
             {searchResults.map(recruit => (
               <div key={recruit.id}
-                style={{ background: '#ffffff', padding: '20px 24px', borderLeft: isOwner(recruit) ? '4px solid #d4a017' : isSquad(recruit) ? '4px solid #4a5240' : '4px solid transparent', border: '1px solid #e8ddd0' }}>
+                style={{ background: '#ffffff', padding: '20px 24px', borderLeft: isOwner(recruit) ? '4px solid #d4a017' : isSquad(recruit) ? '4px solid #4a5240' : '4px solid #e8ddd0', border: '1px solid #e8ddd0' }}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', letterSpacing: '2px', color: '#1a1a16' }}>{recruit.full_name}</div>
@@ -330,10 +305,9 @@ export default function NewRecruitPage() {
         <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }} className="uppercase">← Dashboard</Link>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }} className="mt-4">Find Your Recruit</h1>
         <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
-          Search first — your recruit may already be in BootMail. Family members can join the same squad.
+          Search first — your recruit may already be in BootMail.
         </p>
       </div>
-
       <form onSubmit={handleSearch} className="space-y-4">
         <div style={{ background: '#ffffff', padding: '28px' }}>
           <div style={sec}>Search for Your Recruit</div>
@@ -363,13 +337,11 @@ export default function NewRecruitPage() {
             </div>
           </div>
         </div>
-
         <button type="submit" disabled={searching || !searchName.trim()}
           style={{ background: searchName.trim() ? '#4a5240' : '#e8ddd0', fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '3px', width: '100%', padding: '18px', border: 'none', cursor: searchName.trim() ? 'pointer' : 'not-allowed' }}
           className="uppercase text-white hover:opacity-90 disabled:opacity-40 transition-all">
           {searching ? 'Searching...' : 'Search BootMail →'}
         </button>
-
         <div style={{ textAlign: 'center' }}>
           <button type="button" onClick={() => setStep('add')}
             style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560', background: 'none', border: 'none', cursor: 'pointer' }}

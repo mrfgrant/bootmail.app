@@ -27,19 +27,15 @@ type Step = 'search' | 'results' | 'add'
 export default function NewRecruitPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('search')
-  const [userId, setUserId] = useState<string>('')
-
   const [searchName, setSearchName] = useState('')
   const [searchBranch, setSearchBranch] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [myRecruitIds, setMyRecruitIds] = useState<string[]>([])
   const [mySquadIds, setMySquadIds] = useState<string[]>([])
-
   const [joining, setJoining] = useState<string>('')
   const [joined, setJoined] = useState<string>('')
   const [joinError, setJoinError] = useState('')
-
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
@@ -48,16 +44,6 @@ export default function NewRecruitPage() {
     address_line1: '', address_line2: '', city: '', state: '', zip: '',
     company: '', platoon: '',
   })
-
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { window.location.href = '/auth/login'; return }
-      setUserId(session.user.id)
-    }
-    getUser()
-  }, [])
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -68,10 +54,15 @@ export default function NewRecruitPage() {
     if (!searchName.trim()) return
     setSearching(true)
     setSearchResults([])
+    setJoinError('')
 
     const supabase = createClient()
 
-    // Run all queries in parallel
+    // Get session fresh inside the handler — avoids userId race condition
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { window.location.href = '/auth/login'; return }
+    const uid = session.user.id
+
     let query = supabase
       .from('recruits')
       .select('id, full_name, branch, training_base, city, state, status, ship_date, owner_id')
@@ -80,35 +71,51 @@ export default function NewRecruitPage() {
     if (searchBranch) query = query.eq('branch', searchBranch)
 
     const [
-      { data: results },
+      { data: results, error: searchErr },
       { data: myRecruits },
       { data: mySquad },
     ] = await Promise.all([
       query.limit(10),
-      supabase.from('recruits').select('id').eq('owner_id', userId),
-      supabase.from('squad_members').select('recruit_id').eq('profile_id', userId),
+      supabase.from('recruits').select('id').eq('owner_id', uid),
+      supabase.from('squad_members').select('recruit_id').eq('profile_id', uid),
     ])
 
-    setMyRecruitIds(myRecruits?.map(r => r.id) ?? [])
-    setMySquadIds(mySquad?.map(s => s.recruit_id) ?? [])
+    if (searchErr) {
+      console.error('Search error:', searchErr)
+    }
+
+    setMyRecruitIds(myRecruits?.map((r: any) => r.id) ?? [])
+    setMySquadIds(mySquad?.map((s: any) => s.recruit_id) ?? [])
     setSearchResults(results ?? [])
     setSearching(false)
     setStep('results')
   }
 
-  function getRecruitStatus(recruitId: string, ownerId: string) {
-    if (ownerId === userId) return 'owner'
-    if (mySquadIds.includes(recruitId)) return 'squad'
+  function getStatus(recruitId: string, ownerId: string) {
+    if (ownerId === myRecruitIds[0] || myRecruitIds.includes(recruitId)) return 'owner'
+    if (mySquadIds.includes(recruitId) || joined === recruitId) return 'squad'
     return 'none'
+  }
+
+  // Re-check owner using fresh data
+  function isOwner(recruit: any) {
+    return myRecruitIds.includes(recruit.id)
+  }
+
+  function isSquad(recruit: any) {
+    return mySquadIds.includes(recruit.id) || joined === recruit.id
   }
 
   async function handleJoinSquad(recruitId: string) {
     setJoining(recruitId)
     setJoinError('')
     const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
     const { error: joinErr } = await supabase
       .from('squad_members')
-      .insert({ recruit_id: recruitId, profile_id: userId, role: 'member' })
+      .insert({ recruit_id: recruitId, profile_id: session.user.id, role: 'member' })
 
     if (joinErr) {
       setJoinError(joinErr.code === '23505' ? 'Already in this squad.' : joinErr.message)
@@ -125,8 +132,11 @@ export default function NewRecruitPage() {
     setSaving(true)
     setError('')
     const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { window.location.href = '/auth/login'; return }
+
     const { error: dbError } = await supabase.from('recruits').insert({
-      owner_id: userId,
+      owner_id: session.user.id,
       full_name: form.full_name,
       branch: form.branch,
       status: form.status,
@@ -156,24 +166,19 @@ export default function NewRecruitPage() {
         <div className="mb-8">
           <button onClick={() => setStep(searchResults.length > 0 ? 'results' : 'search')}
             style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560', background: 'none', border: 'none', cursor: 'pointer' }}
-            className="uppercase mb-4 block">
-            ← Back
-          </button>
+            className="uppercase mb-4 block">← Back</button>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }}>Add Recruit</h1>
           <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
-            Fill in their details. Address can be added later once you receive it.
+            Fill in their details. Address can be added later.
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div style={{ background: '#ffffff', padding: '28px' }}>
             <div style={sec}>Basic Info</div>
             <div className="space-y-4">
-              <div>
-                <label style={lbl}>Full Name *</label>
-                <input required value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Andrew Grant" style={inp} />
-              </div>
-              <div>
-                <label style={lbl}>Branch *</label>
+              <div><label style={lbl}>Full Name *</label>
+                <input required value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Andrew Grant" style={inp} /></div>
+              <div><label style={lbl}>Branch *</label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {BRANCHES.map(b => (
                     <button key={b.id} type="button" onClick={() => set('branch', b.id)}
@@ -183,8 +188,7 @@ export default function NewRecruitPage() {
                   ))}
                 </div>
               </div>
-              <div>
-                <label style={lbl}>Status</label>
+              <div><label style={lbl}>Status</label>
                 <select value={form.status} onChange={e => set('status', e.target.value)} style={{ ...inp, appearance: 'none' }}>
                   {STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
@@ -214,20 +218,14 @@ export default function NewRecruitPage() {
               <div><label style={lbl}>Platoon</label><input value={form.platoon} onChange={e => set('platoon', e.target.value)} placeholder="1st Platoon" style={inp} /></div>
             </div>
           </div>
-          {error && (
-            <div style={{ background: 'rgba(192,57,43,0.1)', border: '1px solid rgba(192,57,43,0.3)', padding: '12px 16px' }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#e74c3c' }}>{error}</p>
-            </div>
-          )}
+          {error && <div style={{ background: 'rgba(192,57,43,0.1)', border: '1px solid rgba(192,57,43,0.3)', padding: '12px 16px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#e74c3c' }}>{error}</p></div>}
           <div className="flex gap-3">
             <button type="submit" disabled={saving || !form.full_name || !form.branch}
               style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', flex: 1, border: 'none', cursor: 'pointer', padding: '16px' }}
               className="text-black uppercase hover:opacity-90 disabled:opacity-40">
               {saving ? 'Saving...' : 'Add Recruit →'}
             </button>
-            <Link href="/dashboard"
-              style={{ background: '#fff', border: '1px solid #c8b89a', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', color: '#6b7560', padding: '16px 24px', display: 'inline-block' }}
-              className="uppercase">Cancel</Link>
+            <Link href="/dashboard" style={{ background: '#fff', border: '1px solid #c8b89a', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', color: '#6b7560', padding: '16px 24px', display: 'inline-block' }} className="uppercase">Cancel</Link>
           </div>
         </form>
       </div>
@@ -241,115 +239,79 @@ export default function NewRecruitPage() {
         <div className="mb-8">
           <button onClick={() => { setStep('search'); setSearchResults([]) }}
             style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560', background: 'none', border: 'none', cursor: 'pointer' }}
-            className="uppercase mb-4 block">
-            ← Search Again
-          </button>
+            className="uppercase mb-4 block">← Search Again</button>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }}>
             {searchResults.length > 0
-              ? searchResults.length + ' Result' + (searchResults.length > 1 ? 's' : '') + ' for "' + searchName + '"'
-              : 'No Results for "' + searchName + '"'}
+              ? searchResults.length + ' Result' + (searchResults.length > 1 ? 's' : '')
+              : 'No Results'}
           </h1>
+          <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
+            Searching for &ldquo;{searchName}&rdquo;{searchBranch ? ' · ' + searchBranch : ''}
+          </p>
         </div>
 
         {searchResults.length > 0 && (
           <div className="space-y-0.5 mb-6">
-            {searchResults.map(recruit => {
-              const connectionStatus = getRecruitStatus(recruit.id, recruit.owner_id)
-              const isJoined = joined === recruit.id || connectionStatus === 'squad'
-              const isOwner = connectionStatus === 'owner'
-
-              return (
-                <div key={recruit.id}
-                  style={{ background: '#ffffff', border: '1px solid #e8ddd0', padding: '20px 24px', borderLeft: isOwner ? '4px solid #d4a017' : isJoined ? '4px solid #4a5240' : '4px solid transparent' }}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', letterSpacing: '2px', color: '#1a1a16' }}>
-                        {recruit.full_name}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span style={{ background: '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '2px', color: '#fff', padding: '2px 8px' }} className="uppercase">
-                          {recruit.branch}
-                        </span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#6b7560' }} className="uppercase">
-                          {recruit.status}
-                        </span>
-                        {isOwner && (
-                          <span style={{ background: 'rgba(212,160,23,0.15)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '2px', color: '#d4a017', padding: '2px 8px' }} className="uppercase">
-                            Your Recruit
-                          </span>
-                        )}
-                        {isJoined && !isOwner && (
-                          <span style={{ background: 'rgba(74,82,64,0.1)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '2px', color: '#4a5240', padding: '2px 8px' }} className="uppercase">
-                            ✓ In Your Squad
-                          </span>
-                        )}
-                      </div>
-                      {(recruit.city || recruit.training_base) && (
-                        <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#999', fontStyle: 'italic', marginTop: '6px' }}>
-                          {recruit.training_base ?? (recruit.city + (recruit.state ? ', ' + recruit.state : ''))}
-                        </div>
-                      )}
-                      {recruit.ship_date && (
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#6b7560', marginTop: '4px' }} className="uppercase">
-                          Shipped: {new Date(recruit.ship_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </div>
-                      )}
+            {searchResults.map(recruit => (
+              <div key={recruit.id}
+                style={{ background: '#ffffff', padding: '20px 24px', borderLeft: isOwner(recruit) ? '4px solid #d4a017' : isSquad(recruit) ? '4px solid #4a5240' : '4px solid transparent', border: '1px solid #e8ddd0' }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', letterSpacing: '2px', color: '#1a1a16' }}>{recruit.full_name}</div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span style={{ background: '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '2px', color: '#fff', padding: '2px 8px' }} className="uppercase">{recruit.branch}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#6b7560' }} className="uppercase">{recruit.status}</span>
+                      {isOwner(recruit) && <span style={{ background: 'rgba(212,160,23,0.15)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '2px', color: '#d4a017', padding: '2px 8px' }} className="uppercase">Your Recruit</span>}
+                      {isSquad(recruit) && !isOwner(recruit) && <span style={{ background: 'rgba(74,82,64,0.1)', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '2px', color: '#4a5240', padding: '2px 8px' }} className="uppercase">✓ In Your Squad</span>}
                     </div>
-
-                    <div className="flex-shrink-0">
-                      {isOwner ? (
-                        <Link href={'/dashboard/recruits/' + recruit.id + '/edit'}
-                          style={{ border: '1px solid #d4a017', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#d4a017', padding: '8px 16px', display: 'inline-block' }}
-                          className="uppercase hover:bg-gold/10 transition-colors">
-                          Manage →
-                        </Link>
-                      ) : isJoined ? (
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#4a5240', padding: '8px 16px', border: '1px solid rgba(74,82,64,0.3)' }} className="uppercase">
-                          ✓ Joined
-                        </div>
-                      ) : (
-                        <button onClick={() => handleJoinSquad(recruit.id)}
-                          disabled={joining === recruit.id}
-                          style={{ background: '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', padding: '10px 16px', border: 'none', cursor: 'pointer', color: '#fff', whiteSpace: 'nowrap' }}
-                          className="uppercase hover:opacity-90 disabled:opacity-50">
-                          {joining === recruit.id ? 'Joining...' : 'Join Squad →'}
-                        </button>
-                      )}
-                    </div>
+                    {(recruit.city || recruit.training_base) && (
+                      <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#999', fontStyle: 'italic', marginTop: '6px' }}>
+                        {recruit.training_base ?? (recruit.city + (recruit.state ? ', ' + recruit.state : ''))}
+                      </div>
+                    )}
+                    {recruit.ship_date && (
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#6b7560', marginTop: '4px' }} className="uppercase">
+                        Shipped: {new Date(recruit.ship_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    )}
                   </div>
-
-                  {joined === recruit.id && (
-                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e8ddd0' }}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#4a5240', fontStyle: 'italic', marginBottom: '12px' }}>
-                        You&apos;ve joined {recruit.full_name.split(' ').slice(-1)[0]}&apos;s support squad. You can now send letters and contribute to their Legacy Book.
-                      </p>
-                      <Link href="/dashboard"
-                        style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', padding: '10px 24px', display: 'inline-block', color: '#000' }}
-                        className="uppercase hover:opacity-90">
-                        Go to Dashboard →
-                      </Link>
-                    </div>
-                  )}
+                  <div className="flex-shrink-0">
+                    {isOwner(recruit) ? (
+                      <Link href={'/dashboard/recruits/' + recruit.id + '/edit'}
+                        style={{ border: '1px solid #d4a017', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#d4a017', padding: '8px 16px', display: 'inline-block' }}
+                        className="uppercase">Manage →</Link>
+                    ) : isSquad(recruit) ? (
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#4a5240', padding: '8px 16px', border: '1px solid rgba(74,82,64,0.3)' }} className="uppercase">✓ Joined</div>
+                    ) : (
+                      <button onClick={() => handleJoinSquad(recruit.id)} disabled={joining === recruit.id}
+                        style={{ background: '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', padding: '10px 16px', border: 'none', cursor: 'pointer', color: '#fff', whiteSpace: 'nowrap' }}
+                        className="uppercase hover:opacity-90 disabled:opacity-50">
+                        {joining === recruit.id ? 'Joining...' : 'Join Squad →'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )
-            })}
+                {joined === recruit.id && (
+                  <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e8ddd0' }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#4a5240', fontStyle: 'italic', marginBottom: '12px' }}>
+                      You&apos;ve joined the support squad. You can now send letters from your account.
+                    </p>
+                    <Link href="/dashboard" style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', padding: '10px 24px', display: 'inline-block', color: '#000' }} className="uppercase hover:opacity-90">Go to Dashboard →</Link>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
-        {joinError && (
-          <div style={{ background: 'rgba(192,57,43,0.1)', border: '1px solid rgba(192,57,43,0.3)', padding: '12px 16px', marginBottom: '16px' }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#e74c3c' }}>{joinError}</p>
-          </div>
-        )}
+        {joinError && <div style={{ background: 'rgba(192,57,43,0.1)', border: '1px solid rgba(192,57,43,0.3)', padding: '12px 16px', marginBottom: '16px' }}><p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#e74c3c' }}>{joinError}</p></div>}
 
         <div style={{ background: '#f8f5f0', border: '1px solid #e8ddd0', padding: '24px' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', letterSpacing: '2px', color: '#1a1a16', marginBottom: '6px' }}>
             {searchResults.length === 0 ? 'Not in BootMail yet' : 'Different recruit?'}
           </div>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#6b7560', fontStyle: 'italic', marginBottom: '16px' }}>
-            {searchResults.length === 0
-              ? '"' + searchName + '" is not in BootMail yet. Add them to get started.'
-              : 'If your recruit isn\'t listed above, add them as a new record.'}
+            {searchResults.length === 0 ? '"' + searchName + '" wasn\'t found. Add them as a new record.' : 'Don\'t see the right person? Add a new recruit.'}
           </p>
           <button onClick={() => { set('full_name', searchName); if (searchBranch) set('branch', searchBranch); setStep('add') }}
             style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', border: 'none', cursor: 'pointer', padding: '12px 24px', color: '#000' }}
@@ -365,14 +327,10 @@ export default function NewRecruitPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
-        <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }} className="uppercase">
-          ← Dashboard
-        </Link>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }} className="mt-4">
-          Find Your Recruit
-        </h1>
+        <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }} className="uppercase">← Dashboard</Link>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }} className="mt-4">Find Your Recruit</h1>
         <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
-          Search first to see if your recruit is already in BootMail. Family members can join the same squad instead of creating duplicates.
+          Search first — your recruit may already be in BootMail. Family members can join the same squad.
         </p>
       </div>
 
@@ -385,7 +343,7 @@ export default function NewRecruitPage() {
               <input type="text" required value={searchName} onChange={e => setSearchName(e.target.value)}
                 placeholder="Andrew Grant" style={inp} autoFocus />
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#bbb', marginTop: '6px' }} className="uppercase tracking-wider">
-                Tip: Try first name only or last name only if full name doesn&apos;t match
+                Try first name, last name, or full name
               </p>
             </div>
             <div>

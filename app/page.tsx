@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 const NAV_LINKS = [
   { label: 'Letters', href: '#letters' },
@@ -119,23 +118,23 @@ export default function LandingPage() {
     if (!email) return
     setLoading(true)
     setError('')
-
     try {
-      const supabase = createClient()
-      const { error: dbError } = await supabase
-        .from('waitlist')
-        .insert({ email, name: name || null, branch: branch || null, source: 'landing' })
-
-      if (dbError) {
-        if (dbError.code === '23505') {
-          setError('You\'re already on the list! We\'ll be in touch.')
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, branch }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.error === 'already_on_list') {
+          setError("You're already on the list!")
         } else {
-          throw dbError
+          setError('Something went wrong. Try again.')
         }
       } else {
         setSuccess(true)
       }
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Try again.')
     } finally {
       setLoading(false)

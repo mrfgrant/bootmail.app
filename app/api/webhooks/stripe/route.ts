@@ -17,12 +17,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as Stripe.CheckoutSession
-    const { bundle, letterId, recruitId, letters } = session.metadata ?? {}
+    const session = event.data.object as Stripe.Checkout.Session
+    const { letterId, letters } = session.metadata ?? {}
     const letterCount = parseInt(letters ?? '1')
     const supabase = createAdminClient()
 
-    // Find user by Stripe customer or email
     const customerEmail = session.customer_details?.email
     if (!customerEmail) return NextResponse.json({ received: true })
 
@@ -34,14 +33,14 @@ export async function POST(request: NextRequest) {
 
     if (!profile) return NextResponse.json({ received: true })
 
-    // Add credits — give letterCount credits, one is used immediately for the current letter
+    // Add credits — subtract 1 if a letter was already submitted
     const creditsToAdd = letterCount - (letterId ? 1 : 0)
     await supabase
       .from('profiles')
       .update({ letter_credits: (profile.letter_credits ?? 0) + creditsToAdd })
       .eq('id', profile.id)
 
-    // Update the draft letter to paid + processing
+    // Mark draft letter as paid
     if (letterId) {
       await supabase
         .from('letters')
@@ -59,7 +58,12 @@ export async function POST(request: NextRequest) {
       status: 'paid',
       letter_ids: letterId ? [letterId] : [],
       paid_at: new Date().toISOString(),
-      line_items: [{ name: 'BootMail ' + letterCount + ' Letter Bundle', quantity: 1, unit_price: (session.amount_total ?? 0) / 100, total: (session.amount_total ?? 0) / 100 }],
+      line_items: [{
+        name: 'BootMail ' + letterCount + ' Letter Bundle',
+        quantity: 1,
+        unit_price: (session.amount_total ?? 0) / 100,
+        total: (session.amount_total ?? 0) / 100,
+      }],
     })
   }
 

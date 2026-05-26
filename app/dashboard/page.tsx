@@ -1,58 +1,55 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+'use client'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
-export default async function DashboardPage() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+export default function DashboardPage() {
+  const [recruits, setRecruits] = useState<any[]>([])
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, plan, letter_credits')
-    .eq('id', user.id)
-    .single()
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
 
-  const { data: recruits } = await supabase
-    .from('recruits')
-    .select('*')
-    .eq('owner_id', user.id)
-    .order('created_at', { ascending: false })
-
-  const { data: recentLetters } = await supabase
-    .from('letters')
-    .select('id, status, created_at, recruit_id')
-    .eq('sender_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(5)
+      const [{ data: p }, { data: r }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+        supabase.from('recruits').select('*').eq('owner_id', session.user.id).order('created_at', { ascending: false }),
+      ])
+      setProfile(p)
+      setRecruits(r ?? [])
+      setLoading(false)
+    }
+    load()
+  }, [])
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
-  const hasRecruits = recruits && recruits.length > 0
+
+  if (loading) {
+    return <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#6b7560' }} className="uppercase tracking-widest">Loading...</div>
+  }
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-10">
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '4px', color: '#6b7560' }}
-          className="uppercase mb-2">
-          Welcome Back
-        </div>
+          className="uppercase mb-2">Welcome Back</div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }}>
           {firstName}.
         </h1>
       </div>
 
-      {/* No recruit yet — prompt to add one */}
-      {!hasRecruits && (
+      {recruits.length === 0 && (
         <div style={{ background: '#1a1a16', border: '1px solid rgba(212,160,23,0.2)' }} className="p-8 mb-8 text-center">
           <div className="text-5xl mb-4">🪖</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', letterSpacing: '3px', color: '#ffffff' }}
-            className="mb-3">
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', letterSpacing: '3px', color: '#ffffff' }} className="mb-3">
             Add Your Recruit
           </div>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: '#6b7560', fontStyle: 'italic' }}
             className="mb-6 max-w-sm mx-auto">
-            Add your recruit's name, branch, and address to start sending letters and building their Legacy Book.
+            Add your recruit to start sending letters and building their Legacy Book.
           </p>
           <Link href="/dashboard/recruits/new"
             style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px' }}
@@ -62,30 +59,19 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Recruit cards */}
-      {hasRecruits && (
+      {recruits.length > 0 && (
         <div className="mb-10">
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '4px', color: '#6b7560' }}
-            className="uppercase mb-4">
-            Your Recruits
-          </div>
+            className="uppercase mb-4">Your Recruits</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5">
             {recruits.map(r => (
               <div key={r.id} style={{ background: '#ffffff', borderTop: '4px solid #4a5240' }} className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '24px', letterSpacing: '2px', color: '#1a1a16' }}>
-                      {r.full_name}
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }}
-                      className="uppercase mt-1">
-                      {r.branch} · {r.status}
-                    </div>
-                  </div>
-                  <div style={{ background: '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '9px',
-                    letterSpacing: '2px', color: '#ffffff' }} className="px-3 py-1 uppercase">
-                    {r.branch}
-                  </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '24px', letterSpacing: '2px', color: '#1a1a16' }}>
+                  {r.full_name}
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }}
+                  className="uppercase mt-1 mb-4">
+                  {r.branch} · {r.status}
                 </div>
                 <div className="flex gap-2">
                   <Link href={'/dashboard/letters/new?recruit=' + r.id}
@@ -102,23 +88,18 @@ export default async function DashboardPage() {
               </div>
             ))}
             <Link href="/dashboard/recruits/new"
-              style={{ background: 'rgba(74,82,64,0.05)', border: '2px dashed #c8b89a', borderTop: '4px solid transparent' }}
+              style={{ background: 'rgba(74,82,64,0.05)', border: '2px dashed #c8b89a' }}
               className="p-6 flex items-center justify-center hover:border-olive transition-colors">
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '3px', color: '#6b7560' }}
-                className="uppercase">
-                + Add Another Recruit
-              </span>
+                className="uppercase">+ Add Another Recruit</span>
             </Link>
           </div>
         </div>
       )}
 
-      {/* Quick actions */}
       <div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '4px', color: '#6b7560' }}
-          className="uppercase mb-4">
-          Quick Actions
-        </div>
+          className="uppercase mb-4">Quick Actions</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-0.5">
           {[
             { href: '/dashboard/letters/new', icon: '✉️', label: 'Send Letter', sub: 'From $1.99' },
@@ -129,32 +110,20 @@ export default async function DashboardPage() {
             <Link key={a.href} href={a.href}
               style={{ background: '#ffffff', borderTop: '3px solid #e8ddd0' }}
               className="p-6 hover:border-olive transition-all group block">
-              <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">{a.icon}</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '18px', letterSpacing: '1px', color: '#1a1a16' }}
-                className="mb-1">
-                {a.label}
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }}
-                className="uppercase">
-                {a.sub}
-              </div>
+              <div className="text-3xl mb-3">{a.icon}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '18px', letterSpacing: '1px', color: '#1a1a16' }} className="mb-1">{a.label}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }} className="uppercase">{a.sub}</div>
             </Link>
           ))}
         </div>
       </div>
 
-      {/* Letter credits */}
       <div style={{ background: '#1a1a16', marginTop: '32px' }} className="p-6 flex items-center justify-between">
         <div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '3px', color: '#6b7560' }}
-            className="uppercase mb-1">
-            Letter Credits
-          </div>
+            className="uppercase mb-1">Letter Credits</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '36px', color: '#d4a017' }}>
             {profile?.letter_credits ?? 0}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#4a4a40', marginLeft: '8px' }}>
-              remaining
-            </span>
           </div>
         </div>
         <Link href="/dashboard/billing"

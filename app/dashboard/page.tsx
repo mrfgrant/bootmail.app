@@ -24,9 +24,9 @@ export default function DashboardPage() {
     load()
   }, [])
 
-  if (loading) return <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#6b7560' }} className="uppercase tracking-widest">Loading...</div>
-
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
+
+  if (loading) return <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#6b7560' }} className="uppercase tracking-widest">Loading...</div>
 
   return (
     <div>
@@ -39,8 +39,12 @@ export default function DashboardPage() {
         <div style={{ background: '#1a1a16', border: '1px solid rgba(212,160,23,0.2)' }} className="p-8 mb-8 text-center">
           <div className="text-5xl mb-4">🪖</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', letterSpacing: '3px', color: '#ffffff' }} className="mb-3">Add Your Recruit</div>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: '#6b7560', fontStyle: 'italic' }} className="mb-6 max-w-sm mx-auto">Add your recruit to start sending letters and building their Legacy Book.</p>
-          <Link href="/dashboard/recruits/new" style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px' }} className="inline-block px-8 py-4 text-black uppercase hover:opacity-90">Add Recruit →</Link>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: '#6b7560', fontStyle: 'italic' }} className="mb-6 max-w-sm mx-auto">
+            Add your recruit to start sending letters and building their Legacy Book.
+          </p>
+          <Link href="/dashboard/recruits/new" style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px' }} className="inline-block px-8 py-4 text-black uppercase hover:opacity-90">
+            Add Recruit →
+          </Link>
         </div>
       )}
 
@@ -54,12 +58,16 @@ export default function DashboardPage() {
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '24px', letterSpacing: '2px', color: '#1a1a16' }}>{r.full_name}</div>
                   <Link href={'/dashboard/recruits/' + r.id + '/edit'}
                     style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '2px', color: '#6b7560', border: '1px solid #e8ddd0', padding: '4px 10px' }}
-                    className="uppercase hover:border-olive hover:text-olive transition-colors">Edit</Link>
+                    className="uppercase hover:border-olive hover:text-olive transition-colors">
+                    Edit
+                  </Link>
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }} className="uppercase mb-3">{r.branch} · {r.status}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560' }} className="uppercase mb-1">
+                  {r.branch} · {r.status}
+                </div>
                 {r.address_line1
-                  ? <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: '#888', fontStyle: 'italic' }} className="mb-4">{r.address_line1}{r.city ? ', ' + r.city : ''}{r.state ? ' ' + r.state : ''}</div>
-                  : <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#d4a017', letterSpacing: '1px' }} className="mb-4">⚠ No address yet — <Link href={'/dashboard/recruits/' + r.id + '/edit'} style={{ textDecoration: 'underline' }}>add it</Link> to send letters</div>
+                  ? <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: '#999', fontStyle: 'italic' }} className="mb-4">{r.city}{r.state ? ', ' + r.state : ''}</div>
+                  : <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#d4a017' }} className="mb-4 uppercase tracking-wider">⚠ No address yet — <Link href={'/dashboard/recruits/' + r.id + '/edit'} className="underline">add it</Link> to send letters</div>
                 }
                 <div className="flex gap-2">
                   <Link href={'/dashboard/letters/new?recruit=' + r.id} style={{ background: '#4a5240', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px' }} className="px-4 py-2 text-white uppercase hover:opacity-80">Send Letter</Link>
@@ -97,7 +105,7 @@ export default function DashboardPage() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '3px', color: '#6b7560' }} className="uppercase mb-1">Letter Credits</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '36px', color: '#d4a017' }}>{profile?.letter_credits ?? 0}</div>
         </div>
-        <Link href="/dashboard/billing" style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px' }} className="px-6 py-3 text-black uppercase hover:opacity-90">Buy More →</Link>
+        <Link href="/dashboard/billing" style={{ background: '#d4a017', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px' }} className="px-6 py-3 text-black uppercase">Buy More →</Link>
       </div>
     </div>
   )

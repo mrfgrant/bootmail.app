@@ -11,11 +11,10 @@ export function createClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setAll(cookiesToSet: any) {
+        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }: any) =>
-              cookieStore.set(name, value, options)
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
             )
           } catch {}
         },
@@ -24,7 +23,6 @@ export function createClient() {
   )
 }
 
-// Admin client — only use in server-side API routes, never in browser
 export function createAdminClient() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieMethodsServer } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export function createClient() {
@@ -8,8 +8,10 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet: Parameters<CookieMethodsServer['setAll']>[0]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
@@ -21,11 +23,16 @@ export function createClient() {
   )
 }
 
-// Admin client — only use in server-side API routes
+// Admin client — only use in server-side API routes, never in browser
 export function createAdminClient() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { getAll: () => [], setAll: () => {} } }
+    {
+      cookies: {
+        getAll: () => [],
+        setAll: () => {},
+      },
+    }
   )
 }

@@ -57,24 +57,16 @@ GRANT SELECT, INSERT ON public.orders TO authenticated;`,
     id: 'test_credits',
     title: '4. Add Test Credits',
     description: 'Gives your account 10 letter credits for testing.',
-    sql: `UPDATE profiles SET letter_credits = 10 WHERE email = 'jamie@mrfgrant.com';
--- Change email above to yours if different`,
+    sql: `UPDATE profiles SET letter_credits = 10 WHERE email = 'jamie@mrfgrant.com';`,
   },
   {
     id: 'storage',
     title: '5. Storage Bucket',
     description: 'Create the letter-photos bucket for photo uploads.',
-    sql: `-- Run this in Supabase → Storage → New Bucket:
--- Name: letter-photos
--- Public: YES (toggle on)
--- Then click Create Bucket
---
--- OR run via SQL:
-INSERT INTO storage.buckets (id, name, public)
+    sql: `INSERT INTO storage.buckets (id, name, public)
 VALUES ('letter-photos', 'letter-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Allow authenticated users to upload
 CREATE POLICY "Users can upload photos" ON storage.objects
 FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'letter-photos');
@@ -87,7 +79,7 @@ USING (bucket_id = 'letter-photos');`,
 
 export default function SetupPage() {
   const [copied, setCopied] = useState<string>('')
-  const [done, setDone] = useState<Set<string>>(new Set())
+  const [done, setDone] = useState<string[]>([])
 
   function copySQL(id: string, sql: string) {
     navigator.clipboard.writeText(sql)
@@ -96,10 +88,14 @@ export default function SetupPage() {
   }
 
   function markDone(id: string) {
-    setDone(prev => new Set([...prev, id]))
+    setDone(prev => prev.includes(id) ? prev : [...prev, id])
   }
 
-  const allDone = SQL_TASKS.every(t => done.has(t.id))
+  function isDone(id: string) {
+    return done.includes(id)
+  }
+
+  const allDone = SQL_TASKS.every(t => isDone(t.id))
 
   return (
     <div className="max-w-2xl">
@@ -110,14 +106,14 @@ export default function SetupPage() {
           Database Setup
         </h1>
         <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
-          Run each SQL block in Supabase → SQL Editor → New Query. Click Copy, paste, run, then mark done.
+          Run each SQL block in Supabase Dashboard SQL Editor. Click Copy, paste, run, then mark done.
         </p>
       </div>
 
       {allDone && (
         <div style={{ background: 'rgba(74,82,64,0.1)', border: '1px solid rgba(74,82,64,0.4)', padding: '16px 20px', marginBottom: '24px' }}>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#4a5240' }} className="uppercase tracking-wider">
-            🎖️ All setup tasks complete! BootMail is fully configured.
+            All setup tasks complete!
           </p>
         </div>
       )}
@@ -125,29 +121,25 @@ export default function SetupPage() {
       <div className="space-y-3">
         {SQL_TASKS.map(task => (
           <div key={task.id}
-            style={{ background: done.has(task.id) ? '#f8fdf5' : '#ffffff', border: done.has(task.id) ? '1px solid rgba(74,82,64,0.3)' : '1px solid #e8ddd0', padding: '24px' }}>
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', letterSpacing: '1px', color: done.has(task.id) ? '#4a5240' : '#1a1a16' }}>
-                  {done.has(task.id) ? '✓ ' : ''}{task.title}
-                </div>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#6b7560', fontStyle: 'italic', marginTop: '4px' }}>
-                  {task.description}
-                </p>
+            style={{ background: isDone(task.id) ? '#f8fdf5' : '#ffffff', border: isDone(task.id) ? '1px solid rgba(74,82,64,0.3)' : '1px solid #e8ddd0', padding: '24px' }}>
+            <div className="mb-2">
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', letterSpacing: '1px', color: isDone(task.id) ? '#4a5240' : '#1a1a16' }}>
+                {isDone(task.id) ? '✓ ' : ''}{task.title}
               </div>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#6b7560', fontStyle: 'italic', marginTop: '4px' }}>
+                {task.description}
+              </p>
             </div>
-
-            <pre style={{ background: '#1a1a16', color: '#c8b89a', padding: '16px', fontSize: '11px', overflowX: 'auto', marginBottom: '12px', fontFamily: 'var(--font-mono)', lineHeight: '1.6', borderRadius: '2px' }}>
+            <pre style={{ background: '#1a1a16', color: '#c8b89a', padding: '16px', fontSize: '11px', overflowX: 'auto', marginBottom: '12px', fontFamily: 'var(--font-mono)', lineHeight: '1.6' }}>
               {task.sql}
             </pre>
-
             <div className="flex gap-2">
               <button onClick={() => copySQL(task.id, task.sql)}
                 style={{ background: copied === task.id ? '#4a5240' : '#1a1a16', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#ffffff', border: 'none', cursor: 'pointer', padding: '10px 20px' }}
                 className="uppercase transition-colors">
                 {copied === task.id ? '✓ Copied!' : 'Copy SQL'}
               </button>
-              {!done.has(task.id) && (
+              {!isDone(task.id) && (
                 <button onClick={() => markDone(task.id)}
                   style={{ background: 'transparent', border: '1px solid #c8b89a', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px', color: '#6b7560', cursor: 'pointer', padding: '10px 20px' }}
                   className="uppercase hover:border-olive hover:text-olive transition-colors">
@@ -161,12 +153,12 @@ export default function SetupPage() {
 
       <div style={{ background: '#1a1a16', padding: '24px', marginTop: '24px' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '3px', color: '#6b7560' }}
-          className="uppercase mb-3">Next Steps After SQL</div>
+          className="uppercase mb-3">Remaining Steps</div>
         {[
-          'Add STRIPE_SECRET_KEY and NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to Vercel env vars',
+          'Add STRIPE_SECRET_KEY and NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to Vercel',
+          'Add STRIPE_WEBHOOK_SECRET to Vercel',
           'Create letter-photos bucket in Supabase Storage (public)',
-          'Set up Stripe webhook pointing to bootmail.app/api/webhooks/stripe',
-          'Add STRIPE_WEBHOOK_SECRET to Vercel env vars',
+          'Set Stripe webhook endpoint to bootmail.app/api/webhooks/stripe',
         ].map((step, i) => (
           <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#6b7560', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: '12px' }}>
             <span style={{ color: '#d4a017', flexShrink: 0 }}>{i + 1}.</span>

@@ -6,10 +6,6 @@ const nextConfig = {
       { protocol: 'https', hostname: 'files.stripe.com' },
     ],
   },
-  // Ensure API routes are never redirected
-  async redirects() {
-    return []
-  },
   experimental: {
     serverComponentsExternalPackages: ['sharp'],
   },

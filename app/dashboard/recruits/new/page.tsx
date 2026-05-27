@@ -154,7 +154,7 @@ export default function NewRecruitPage() {
             <div style={sec}>Basic Info</div>
             <div className="space-y-4">
               <div><label style={lbl}>Full Name *</label>
-                <input required value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Andrew Grant" style={inp} /></div>
+                <input required value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Jordan Miller" style={inp} /></div>
               <div><label style={lbl}>Branch *</label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {BRANCHES.map(b => (
@@ -179,13 +179,13 @@ export default function NewRecruitPage() {
           <div style={{ background: '#ffffff', padding: '28px' }}>
             <div style={sec}>Mailing Address</div>
             <div className="space-y-4">
-              <div><label style={lbl}>Address Line 1</label><input value={form.address_line1} onChange={e => set('address_line1', e.target.value)} placeholder="PVT Grant, A Co, 1-34 INF..." style={inp} /></div>
+              <div><label style={lbl}>Address Line 1</label><input value={form.address_line1} onChange={e => set('address_line1', e.target.value)} placeholder="PVT Miller, B Co, 2-47 INF..." style={inp} /></div>
               <div><label style={lbl}>Address Line 2</label><input value={form.address_line2} onChange={e => set('address_line2', e.target.value)} placeholder="Unit / Platoon" style={inp} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label style={lbl}>City</label><input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Fort Leonard Wood" style={inp} /></div>
-                <div><label style={lbl}>State</label><input value={form.state} onChange={e => set('state', e.target.value)} placeholder="MO" maxLength={2} style={inp} /></div>
+                <div><label style={lbl}>City</label><input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Fort Moore" style={inp} /></div>
+                <div><label style={lbl}>State</label><input value={form.state} onChange={e => set('state', e.target.value)} placeholder="GA" maxLength={2} style={inp} /></div>
               </div>
-              <div><label style={lbl}>ZIP</label><input value={form.zip} onChange={e => set('zip', e.target.value)} placeholder="65473" style={{ ...inp, maxWidth: '160px' }} /></div>
+              <div><label style={lbl}>ZIP</label><input value={form.zip} onChange={e => set('zip', e.target.value)} placeholder="31905" style={{ ...inp, maxWidth: '160px' }} /></div>
             </div>
           </div>
           <div style={{ background: '#ffffff', padding: '28px' }}>
@@ -315,7 +315,7 @@ export default function NewRecruitPage() {
             <div>
               <label style={lbl}>Recruit&apos;s Name *</label>
               <input type="text" required value={searchName} onChange={e => setSearchName(e.target.value)}
-                placeholder="Andrew Grant" style={inp} autoFocus />
+                placeholder="Jordan Miller" style={inp} autoFocus />
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#bbb', marginTop: '6px' }} className="uppercase tracking-wider">
                 Try first name, last name, or full name
               </p>

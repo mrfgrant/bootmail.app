@@ -37,25 +37,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Convert photos to base64 so Lob template can render them
-    const photoBase64s: string[] = []
-    if (letter.photo_urls?.length > 0) {
-      for (const url of letter.photo_urls.slice(0, 6)) {
-        try {
-          const imgRes = await fetch(url)
-          if (imgRes.ok) {
-            const buffer = await imgRes.arrayBuffer()
-            const b64 = Buffer.from(buffer).toString('base64')
-            const mime = imgRes.headers.get('content-type') ?? 'image/jpeg'
-            photoBase64s.push(`data:${mime};base64,${b64}`)
-          }
-        } catch (e) {
-          console.error('Photo fetch failed:', url, e)
-        }
-      }
-    }
-
-    // Build merge variables for template
+    // Build merge variables — pass photo URLs directly (public Supabase storage)
+    // Do NOT use base64 — too large for Lob merge variables
     const mergeVariables: Record<string, string> = {
       date: new Date(letter.submitted_at ?? letter.created_at)
         .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
@@ -68,17 +51,19 @@ export async function POST(request: NextRequest) {
       body: letter.body ?? '',
     }
 
-    // Add photos as numbered variables
-    photoBase64s.forEach((b64, i) => {
-      mergeVariables[`photo${i + 1}`] = b64
+    // Add photo URLs directly — Lob fetches them at render time
+    const photos = letter.photo_urls ?? []
+    photos.slice(0, 6).forEach((url: string, i: number) => {
+      mergeVariables[`photo${i + 1}`] = url
     })
 
-    const lobBody = {
+    console.log('Sending to Lob:', recruit.full_name, '| photos:', photos.length)
+
+    const lobBody: Record<string, any> = {
       description: `BootMail - ${recruit.full_name} - ${mergeVariables.date}`,
       to: {
         name: recruit.full_name,
         address_line1: recruit.address_line1,
-        address_line2: recruit.address_line2 || undefined,
         address_city: recruit.city,
         address_state: recruit.state,
         address_zip: recruit.zip,
@@ -91,6 +76,10 @@ export async function POST(request: NextRequest) {
       double_sided: false,
       address_placement: 'insert_blank_page',
       mail_type: 'usps_first_class',
+    }
+
+    if (recruit.address_line2) {
+      lobBody.to.address_line2 = recruit.address_line2
     }
 
     const lobResponse = await fetch('https://api.lob.com/v1/letters', {
@@ -112,7 +101,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log('Lob letter created:', lobData.id, '| photos:', photoBase64s.length)
+    console.log('Lob letter created:', lobData.id)
 
     await supabase
       .from('letters')
@@ -129,7 +118,7 @@ export async function POST(request: NextRequest) {
       lobId: lobData.id,
       tracking: lobData.tracking_number ?? null,
       expectedDelivery: lobData.expected_delivery_date ?? null,
-      photos: photoBase64s.length,
+      photos: photos.length,
     })
 
   } catch (error: any) {

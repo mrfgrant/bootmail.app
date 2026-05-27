@@ -80,21 +80,34 @@ export default function NewLetterPage() {
     try {
       const supabase = createClient()
 
-      // Upload photos
+      // Upload photos — get fresh session to ensure auth
       const photoUrls: string[] = []
       if (photos.length > 0) {
         setUploadingPhotos(true)
+        const { data: { session: freshSession } } = await supabase.auth.getSession()
+        if (!freshSession) throw new Error('Session expired — please refresh and try again')
+        
         for (const photo of photos) {
-          const ext = photo.name.split('.').pop()
-          const path = user.id + '/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext
-          const { error: uploadError } = await supabase.storage
+          const ext = photo.name.split('.').pop() ?? 'jpg'
+          const path = freshSession.user.id + '/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext
+          console.log('Uploading photo to:', path, 'size:', photo.size, 'type:', photo.type)
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
             .from('letter-photos')
-            .upload(path, photo, { contentType: photo.type })
-          if (uploadError) throw uploadError
+            .upload(path, photo, { contentType: photo.type, upsert: false })
+          
+          if (uploadError) {
+            console.error('Photo upload error:', uploadError)
+            throw new Error('Photo upload failed: ' + uploadError.message)
+          }
+          
+          console.log('Photo uploaded:', uploadData?.path)
           const { data: { publicUrl } } = supabase.storage.from('letter-photos').getPublicUrl(path)
+          console.log('Public URL:', publicUrl)
           photoUrls.push(publicUrl)
         }
         setUploadingPhotos(false)
+        console.log('All photos uploaded:', photoUrls)
       }
 
       // Insert letter

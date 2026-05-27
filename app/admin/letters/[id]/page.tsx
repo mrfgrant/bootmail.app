@@ -91,7 +91,7 @@ export default function AdminLetterDetailPage() {
             ← All Letters
           </Link>
           <button onClick={() => window.print()}
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', border: 'none', cursor: 'pointer', padding: '10px 24px', color: '#ffffff' }}
+            style={{ background: 'rgba(255,255,255,0.05)', fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '3px', border: 'none', cursor: 'pointer', padding: '10px 24px', color: '#ffffff' }}
             className="uppercase hover:opacity-90">
             🖨 Print
           </button>

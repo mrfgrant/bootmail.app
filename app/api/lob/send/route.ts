@@ -23,57 +23,66 @@ export async function POST(request: NextRequest) {
     const sender = letter.profiles
 
     if (!recruit?.address_line1 || !recruit?.city || !recruit?.state || !recruit?.zip) {
-      return NextResponse.json({ error: 'Recruit address is incomplete. Please update the recruit record first.' }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'Recruit address is incomplete. Please update the recruit record first.' 
+      }, { status: 400 })
     }
 
     // Build letter HTML
     const letterHtml = buildLetterHtml(letter, recruit, sender)
 
     // Send to Lob
+    const lobBody: any = {
+      description: 'BootMail Letter - ' + recruit.full_name,
+      to: {
+        name: recruit.full_name,
+        address_line1: recruit.address_line1,
+        address_city: recruit.city,
+        address_state: recruit.state,
+        address_zip: recruit.zip,
+        address_country: 'US',
+      },
+      from: {
+        name: 'BootMail',
+        address_line1: '246 Robert C Daniel Pkwy',
+        address_line2: '#1162',
+        address_city: 'Augusta',
+        address_state: 'GA',
+        address_zip: '30909',
+        address_country: 'US',
+      },
+      file: '<!DOCTYPE html><html>' + letterHtml + '</html>',
+      color: true,
+      double_sided: false,
+      address_placement: 'top_first_page',
+      mail_type: 'usps_first_class',
+    }
+
+    // Add address_line2 if exists
+    if (recruit.address_line2) {
+      lobBody.to.address_line2 = recruit.address_line2
+    }
+
     const lobResponse = await fetch('https://api.lob.com/v1/letters', {
       method: 'POST',
       headers: {
         'Authorization': 'Basic ' + Buffer.from(process.env.LOB_API_KEY + ':').toString('base64'),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        description: 'BootMail Letter - ' + recruit.full_name,
-        to: {
-          name: recruit.full_name,
-          address_line1: recruit.address_line1,
-          address_line2: recruit.address_line2 || undefined,
-          address_city: recruit.city,
-          address_state: recruit.state,
-          address_zip: recruit.zip,
-          address_country: 'US',
-        },
-        from: {
-          name: 'BootMail',
-          address_line1: '123 Main Street',
-          address_city: 'Austin',
-          address_state: 'TX',
-          address_zip: '78701',
-          address_country: 'US',
-        },
-        file: '<html>' + letterHtml + '</html>',
-        color: true,
-        double_sided: false,
-        address_placement: 'top_first_page',
-        mail_type: 'usps_first_class',
-      }),
+      body: JSON.stringify(lobBody),
     })
 
     const lobData = await lobResponse.json()
 
     if (!lobResponse.ok) {
-      console.error('Lob error:', lobData)
+      console.error('Lob error:', JSON.stringify(lobData))
       return NextResponse.json({ 
         error: lobData.error?.message ?? 'Lob API error',
-        details: lobData 
+        details: lobData,
       }, { status: 500 })
     }
 
-    console.log('Lob letter created:', lobData.id, 'tracking:', lobData.tracking_number)
+    console.log('Lob letter created:', lobData.id)
 
     // Update letter status in DB
     await supabase
@@ -89,8 +98,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       lobId: lobData.id,
-      tracking: lobData.tracking_number,
-      expectedDelivery: lobData.expected_delivery_date,
+      tracking: lobData.tracking_number ?? null,
+      expectedDelivery: lobData.expected_delivery_date ?? null,
     })
 
   } catch (error: any) {
@@ -103,54 +112,55 @@ function buildLetterHtml(letter: any, recruit: any, sender: any): string {
   const date = new Date(letter.submitted_at ?? letter.created_at)
     .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
+  const escapedBody = (letter.body ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
   const photoSection = letter.photo_urls?.length > 0
-    ? '<div style="margin-top:24px;border-top:1px solid #e8ddd0;padding-top:16px;">' +
-      '<p style="font-family:Courier,monospace;font-size:9px;color:#999;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Photos</p>' +
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">' +
-      letter.photo_urls.map((url: string) =>
-        '<img src="' + url + '" style="width:100%;aspect-ratio:1;object-fit:cover;" />'
-      ).join('') +
-      '</div></div>'
+    ? `<div style="margin-top:24px;border-top:1px solid #e8ddd0;padding-top:16px;">
+        <p style="font-family:Courier,monospace;font-size:9px;color:#999;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">
+          Photos (${letter.photo_urls.length})
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          ${letter.photo_urls.map((url: string) =>
+            `<img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;" />`
+          ).join('')}
+        </div>
+      </div>`
     : ''
 
   return `
 <head>
 <meta charset="utf-8">
 <style>
-  body { margin: 0; padding: 0; font-family: Georgia, serif; color: #1a1a16; }
-  .page { padding: 0.5in; max-width: 8.5in; }
-  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a1a16; padding-bottom: 12px; margin-bottom: 24px; }
-  .logo { font-family: Arial, sans-serif; font-size: 22px; font-weight: 900; letter-spacing: 4px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; font-family: Georgia, serif; color: #1a1a16; font-size: 13px; }
+  .page { padding: 0.75in 0.75in 0.5in 0.75in; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a1a16; padding-bottom: 12px; margin-bottom: 20px; }
+  .logo { font-family: Arial, sans-serif; font-size: 20px; font-weight: 900; letter-spacing: 4px; color: #1a1a16; }
   .logo span { color: #d4a017; }
-  .meta { font-family: Courier, monospace; font-size: 10px; color: #555; text-align: right; line-height: 1.6; }
-  .address-block { font-family: Courier, monospace; font-size: 12px; line-height: 1.7; margin-bottom: 24px; }
-  .body { font-size: 13px; line-height: 1.9; white-space: pre-wrap; min-height: 200px; }
-  .footer { margin-top: 32px; border-top: 1px solid #e8ddd0; padding-top: 12px; font-family: Courier, monospace; font-size: 9px; color: #bbb; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
+  .date { font-family: Courier, monospace; font-size: 10px; color: #555; }
+  .address-block { font-family: Courier, monospace; font-size: 11px; line-height: 1.7; margin-bottom: 20px; color: #1a1a16; }
+  .body { font-size: 12.5px; line-height: 1.85; white-space: pre-wrap; margin-bottom: 24px; }
+  .footer { margin-top: 24px; border-top: 1px solid #e8ddd0; padding-top: 10px; font-family: Courier, monospace; font-size: 8px; color: #bbb; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
 </style>
 </head>
 <body>
 <div class="page">
   <div class="header">
     <div class="logo">BOOT<span>MAIL</span></div>
-    <div class="meta">
-      <div>${date}</div>
-    </div>
+    <div class="date">${date}</div>
   </div>
-
   <div class="address-block">
     <strong>${recruit.full_name}</strong><br>
     ${recruit.address_line1}<br>
     ${recruit.address_line2 ? recruit.address_line2 + '<br>' : ''}
     ${recruit.city}, ${recruit.state} ${recruit.zip}
   </div>
-
-  <div class="body">${letter.body?.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-
+  <div class="body">${escapedBody}</div>
   ${photoSection}
-
-  <div class="footer">
-    Sent with BootMail &middot; bootmail.app &middot; More Than Mail. It&apos;s Morale.
-  </div>
+  <div class="footer">Sent with BootMail &middot; bootmail.app &middot; More Than Mail. It's Morale.</div>
 </div>
 </body>
 `

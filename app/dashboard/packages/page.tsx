@@ -289,8 +289,15 @@ export default function PackagesPage() {
           const qty = getQty(product.id)
           return (
             <div key={product.id} style={{ background: '#ffffff', padding: '20px' }}>
-              {/* Category icon */}
-              <div style={{ fontSize: '28px', marginBottom: '12px' }}>{CATEGORY_ICONS[product.category] ?? '📦'}</div>
+              {/* Product illustration */}
+              <div style={{ width: '100%', height: '120px', marginBottom: '12px', overflow: 'hidden', background: '#f5f0e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img 
+                  src={'/product-illustrations/' + product.category + '.svg'}
+                  alt={product.category}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              </div>
 
               {/* Approved badge */}
               {product.drill_sergeant_approved && (

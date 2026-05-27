@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 const CATEGORY_LABELS: Record<string, string> = {
   all:        'All Items',
+  bct:        'BCT Approved',
   hygiene:    'Hygiene',
   food:       'Food & Snacks',
   clothing:   'Clothing',
@@ -16,6 +17,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
+  bct:        '🪖',
   hygiene:    '🧴',
   food:       '🍫',
   clothing:   '👕',
@@ -93,8 +95,12 @@ export default function PackagesPage() {
   const total = subtotal + shipping
   const cartCount = cart.reduce((sum, i) => sum + i.qty, 0)
 
-  const filtered = category === 'all' ? products : products.filter(p => p.category === category)
-  const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))]
+  const filtered = category === 'all' 
+    ? products 
+    : category === 'bct' 
+    ? products.filter(p => p.drill_sergeant_approved) 
+    : products.filter(p => p.category === category)
+  const categories = ['all', 'bct', ...Array.from(new Set(products.map(p => p.category)))]
   const recruit = recruits.find(r => r.id === selectedRecruit)
 
   async function handleCheckout() {
@@ -161,8 +167,8 @@ export default function PackagesPage() {
             {cart.map(item => (
               <div key={item.product.id} style={{ background: '#ffffff', padding: '16px 20px' }} className="flex items-center justify-between gap-4">
                 <div className="flex-1">
-                  <div style={{ ...sans, fontSize: '18px', letterSpacing: '1px', color: '#1a1a16' }}>{item.product.name}</div>
-                  <div style={{ ...serif, fontSize: '12px', color: '#999', fontStyle: 'italic', marginTop: '2px' }}>{item.product.description}</div>
+                  <div style={{ ...sans, fontSize: '20px', letterSpacing: '1px', color: '#1a1a16' }}>{item.product.name}</div>
+                  <div style={{ ...serif, fontSize: '14px', color: '#6b7560', fontStyle: 'italic', marginTop: '4px' }}>{item.product.description}</div>
                   {item.product.drill_sergeant_approved && (
                     <div style={{ ...mono, fontSize: '9px', color: '#4a5240', letterSpacing: '1px', marginTop: '4px' }} className="uppercase">✓ BCT approved</div>
                   )}
@@ -248,7 +254,7 @@ export default function PackagesPage() {
         <div>
           <div style={{ ...mono, fontSize: '10px', letterSpacing: '4px', color: '#6b7560', textTransform: 'uppercase' as const }} className="mb-2">Care Packages</div>
           <h1 style={{ ...sans, fontSize: '48px', letterSpacing: '3px', color: '#1a1a16' }}>The Store</h1>
-          <p style={{ ...serif, fontStyle: 'italic', color: '#6b7560', fontSize: '14px' }} className="mt-2">
+          <p style={{ ...serif, fontStyle: 'italic', color: '#6b7560', fontSize: '16px' }} className="mt-2">
             Everything approved for basic training. Ships direct to base.
           </p>
         </div>
@@ -262,7 +268,7 @@ export default function PackagesPage() {
 
       {/* Phase warning for BCT */}
       <div style={{ background: 'rgba(212,160,23,0.08)', border: '1px solid rgba(212,160,23,0.2)', padding: '12px 16px', marginBottom: '24px' }}>
-        <p style={{ ...mono, fontSize: '10px', color: '#d4a017', textTransform: 'uppercase' as const, letterSpacing: '2px' }}>
+        <p style={{ ...mono, fontSize: '12px', color: '#d4a017', textTransform: 'uppercase' as const, letterSpacing: '1px' }}>
           🪖 BCT Note — Items marked "BCT approved" are permitted during basic training. Food & tech items are for AIT and beyond.
         </p>
       </div>
@@ -271,7 +277,7 @@ export default function PackagesPage() {
       <div className="flex gap-2 mb-6 flex-wrap">
         {categories.map(cat => (
           <button key={cat} onClick={() => setCategory(cat)}
-            style={{ ...mono, fontSize: '10px', letterSpacing: '2px', padding: '8px 16px', border: 'none', cursor: 'pointer', textTransform: 'uppercase' as const, background: category === cat ? '#4a5240' : '#e8ddd0', color: category === cat ? '#fff' : '#6b7560' }}>
+            style={{ ...mono, fontSize: '12px', letterSpacing: '2px', padding: '10px 18px', border: 'none', cursor: 'pointer', textTransform: 'uppercase' as const, background: category === cat ? '#4a5240' : '#e8ddd0', color: category === cat ? '#fff' : '#6b7560' }}>
             {CATEGORY_ICONS[cat] ?? ''} {CATEGORY_LABELS[cat] ?? cat}
           </button>
         ))}
@@ -288,13 +294,13 @@ export default function PackagesPage() {
 
               {/* Approved badge */}
               {product.drill_sergeant_approved && (
-                <div style={{ ...mono, fontSize: '8px', letterSpacing: '2px', color: '#4a5240', background: 'rgba(74,82,64,0.1)', padding: '2px 8px', display: 'inline-block', marginBottom: '8px', textTransform: 'uppercase' as const }}>
+                <div style={{ ...mono, fontSize: '10px', letterSpacing: '2px', color: '#4a5240', background: 'rgba(74,82,64,0.1)', padding: '3px 10px', display: 'inline-block', marginBottom: '10px', textTransform: 'uppercase' as const }}>
                   ✓ BCT Approved
                 </div>
               )}
 
-              <div style={{ ...sans, fontSize: '15px', letterSpacing: '1px', color: '#1a1a16', marginBottom: '4px', lineHeight: 1.3 }}>{product.name}</div>
-              <div style={{ ...serif, fontSize: '12px', color: '#999', fontStyle: 'italic', marginBottom: '12px' }}>{product.description}</div>
+              <div style={{ ...sans, fontSize: '18px', letterSpacing: '1px', color: '#1a1a16', marginBottom: '6px', lineHeight: 1.3 }}>{product.name}</div>
+              <div style={{ ...serif, fontSize: '14px', color: '#6b7560', fontStyle: 'italic', marginBottom: '14px' }}>{product.description}</div>
 
               <div className="flex items-center justify-between">
                 <div style={{ ...sans, fontSize: '20px', fontWeight: 900, color: '#1a1a16' }}>${product.price}</div>

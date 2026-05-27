@@ -8,7 +8,6 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Fetch letter with recruit and profile
     const { data: letter, error: letterErr } = await supabase
       .from('letters')
       .select('*, recruits(*), profiles(full_name, email)')
@@ -28,10 +27,26 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Build letter HTML
-    const letterHtml = buildLetterHtml(letter, recruit, sender)
+    // Convert photos to base64 so Lob can render them
+    const photoBase64s: string[] = []
+    if (letter.photo_urls?.length > 0) {
+      for (const url of letter.photo_urls) {
+        try {
+          const imgRes = await fetch(url)
+          if (imgRes.ok) {
+            const buffer = await imgRes.arrayBuffer()
+            const b64 = Buffer.from(buffer).toString('base64')
+            const mime = imgRes.headers.get('content-type') ?? 'image/jpeg'
+            photoBase64s.push(`data:${mime};base64,${b64}`)
+          }
+        } catch (e) {
+          console.error('Photo fetch failed:', url, e)
+        }
+      }
+    }
 
-    // Send to Lob
+    const letterHtml = buildLetterHtml(letter, recruit, sender, photoBase64s)
+
     const lobBody: any = {
       description: 'BootMail Letter - ' + recruit.full_name,
       to: {
@@ -54,11 +69,11 @@ export async function POST(request: NextRequest) {
       file: '<!DOCTYPE html><html>' + letterHtml + '</html>',
       color: true,
       double_sided: false,
-      address_placement: 'top_first_page',
+      // Use insert_blank_page so address window is on a separate page
+      address_placement: 'insert_blank_page',
       mail_type: 'usps_first_class',
     }
 
-    // Add address_line2 if exists
     if (recruit.address_line2) {
       lobBody.to.address_line2 = recruit.address_line2
     }
@@ -84,7 +99,6 @@ export async function POST(request: NextRequest) {
 
     console.log('Lob letter created:', lobData.id)
 
-    // Update letter status in DB
     await supabase
       .from('letters')
       .update({
@@ -108,7 +122,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildLetterHtml(letter: any, recruit: any, sender: any): string {
+function buildLetterHtml(letter: any, recruit: any, sender: any, photoBase64s: string[]): string {
   const date = new Date(letter.submitted_at ?? letter.created_at)
     .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
@@ -117,16 +131,21 @@ function buildLetterHtml(letter: any, recruit: any, sender: any): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
-  const photoSection = letter.photo_urls?.length > 0
-    ? `<div style="margin-top:24px;border-top:1px solid #e8ddd0;padding-top:16px;">
-        <p style="font-family:Courier,monospace;font-size:9px;color:#999;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">
-          Photos (${letter.photo_urls.length})
+  // Photos as base64 inline — Lob can render these
+  const photoSection = photoBase64s.length > 0
+    ? `<div style="margin-top:24px;border-top:1px solid #e8ddd0;padding-top:16px;page-break-inside:avoid;">
+        <p style="font-family:Courier,monospace;font-size:9px;color:#999;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">
+          Photos (${photoBase64s.length})
         </p>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-          ${letter.photo_urls.map((url: string) =>
-            `<img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;" />`
-          ).join('')}
-        </div>
+        <table width="100%" cellpadding="4" cellspacing="0">
+          <tr>
+            ${photoBase64s.map(b64 =>
+              `<td width="${Math.floor(100/Math.min(photoBase64s.length,3))}%" style="vertical-align:top;">
+                <img src="${b64}" style="width:100%;display:block;" />
+              </td>`
+            ).join('')}
+          </tr>
+        </table>
       </div>`
     : ''
 
@@ -134,14 +153,14 @@ function buildLetterHtml(letter: any, recruit: any, sender: any): string {
 <head>
 <meta charset="utf-8">
 <style>
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 0; font-family: Georgia, serif; color: #1a1a16; font-size: 13px; }
-  .page { padding: 0.75in 0.75in 0.5in 0.75in; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; color: #1a1a16; font-size: 13px; }
+  .page { padding: 0.75in; }
   .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a1a16; padding-bottom: 12px; margin-bottom: 20px; }
-  .logo { font-family: Arial, sans-serif; font-size: 20px; font-weight: 900; letter-spacing: 4px; color: #1a1a16; }
+  .logo { font-family: Arial, sans-serif; font-size: 20px; font-weight: 900; letter-spacing: 4px; }
   .logo span { color: #d4a017; }
   .date { font-family: Courier, monospace; font-size: 10px; color: #555; }
-  .address-block { font-family: Courier, monospace; font-size: 11px; line-height: 1.7; margin-bottom: 20px; color: #1a1a16; }
+  .address-block { font-family: Courier, monospace; font-size: 11px; line-height: 1.7; margin-bottom: 20px; }
   .body { font-size: 12.5px; line-height: 1.85; white-space: pre-wrap; margin-bottom: 24px; }
   .footer { margin-top: 24px; border-top: 1px solid #e8ddd0; padding-top: 10px; font-family: Courier, monospace; font-size: 8px; color: #bbb; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
 </style>

@@ -49,6 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {[
               { href: '/admin', label: 'Dashboard' },
               { href: '/admin/letters', label: 'Letters' },
+              { href: '/admin/packages', label: 'Packages' },
               { href: '/admin/orders', label: 'Orders' },
               { href: '/admin/users', label: 'Users' },
               { href: '/admin/waitlist', label: 'Waitlist' },

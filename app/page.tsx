@@ -136,7 +136,7 @@ export default function LandingPage() {
         </section>
 
         {/* BRANCH STRIP */}
-        <section style={{ padding: '24px 0', background: '#ede8de', borderBottom: '1px solid #d4c9b0', margin: '0 -40px', padding: '24px 40px' }}>
+        <section style={{ padding: '24px 40px', background: '#ede8de', borderBottom: '1px solid #d4c9b0', margin: '0 -40px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '32px', flexWrap: 'wrap' }}>
             <span style={{ ...mono, fontSize: '10px', letterSpacing: '3px', color: '#6b7560', textTransform: 'uppercase' as const, flexShrink: 0 }}>All Branches:</span>
             <div style={{ display: 'flex', gap: '32px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -158,7 +158,7 @@ export default function LandingPage() {
         </section>
 
         {/* MAIL CALL QUOTE */}
-        <section style={{ padding: '48px 0', background: '#1a1a16', margin: '0 -40px', padding: '48px 40px', borderBottom: '1px solid #d4c9b0' }}>
+        <section style={{ padding: '48px 40px', background: '#1a1a16', margin: '0 -40px', borderBottom: '1px solid #d4c9b0' }}>
           <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', maxWidth: '720px' }}>
             <div style={{ color: '#b8860b', fontSize: '72px', lineHeight: 0.7, ...serif, flexShrink: 0 }}>"</div>
             <div>
